@@ -1,0 +1,24 @@
+\begin{bmatrix}
+        v_\pi(s_1) \\
+        v_\pi(s_2) \\
+        v_\pi(s_3) \\
+        v_\pi(s_4)
+        \end{bmatrix} = 
+        \begin{bmatrix}
+        r_\pi(s_1) \\
+        r_\pi(s_2) \\
+        r_\pi(s_3) \\
+        r_\pi(s_4)
+        \end{bmatrix} + \gamma
+        \begin{bmatrix}
+        p_{11} & p_{12} & p_{13} & p_{14} \\
+        p_{21} & p_{22} & p_{23} & p_{24} \\
+        p_{31} & p_{32} & p_{33} & p_{34} \\
+        p_{41} & p_{42} & p_{43} & p_{44}
+        \end{bmatrix}
+        \begin{bmatrix}
+        v_\pi(s_1) \\
+        v_\pi(s_2) \\
+        v_\pi(s_3) \\
+        v_\pi(s_4)
+        \end{bmatrix}
