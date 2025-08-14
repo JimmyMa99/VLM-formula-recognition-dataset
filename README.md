@@ -39,7 +39,7 @@
 ```bash
 bash env.sh
 
-pip install torch torchvision transformers Pillow decord numpy
+pip install -r requirements.txt
 ```
 
 ### 2. 模型推理
