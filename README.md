@@ -1,5 +1,10 @@
 # VLM 公式识别与评估框架
 
+<p align="center">
+  <a href="https://www.modelscope.cn/datasets/JimmyMa99/VLM-formula-recognition-dataset_intern_camp">
+    <img alt="ModelScope Dataset" src="https://img.shields.io/badge/ModelScope-Dataset-orange.svg"/>
+  </a>
+</p>
 本项目是一个用于评估视觉语言模型（VLM）在数学公式识别（Formula Recognition）任务上性能的框架。它提供了一套完整的从模型推理到性能评估的工具，可以帮助开发者快速验证模型的效果。
 
 ## 项目概述
