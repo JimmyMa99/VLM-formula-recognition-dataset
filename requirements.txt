@@ -29,6 +29,6 @@ sympy==1.14.0
 tifffile==2025.5.10
 typing_extensions==4.14.1
 yarl==1.20.1
-ms-swift ==3.4.0
+ms-swift ==3.7.2
 decord==0.6.0 
 torchvision==0.23.0
