@@ -11,16 +11,23 @@ import shutil
 from pathlib import Path
 
 # 添加路径导入
-sys.path.append('./infer_core')
-sys.path.append('./eval_core')
+sys.path.append("./infer_core")
+sys.path.append("./eval_core")
 from infer_core.inferVLM import MathFormulaOCR
+from infer_core.interns1 import MathFormulaOCRInternS1
 from main_eval import ComprehensiveEvaluator
 
 
 class EvaluatorPipeline:
     """评估管道，封装完整的推理和评估流程"""
 
-    def __init__(self, model_path, hash_weight=0.5, similarity_weight=0.5, similarity_threshold=0.6):
+    def __init__(
+        self,
+        model_path,
+        hash_weight=0.5,
+        similarity_weight=0.5,
+        similarity_threshold=0.6,
+    ):
         """
         初始化评估管道
 
@@ -52,11 +59,17 @@ class EvaluatorPipeline:
         """初始化OCR组件"""
         if self.ocr is None:
             print("📥 正在初始化OCR组件...")
-            self.ocr = MathFormulaOCR(
-                model_path=self.model_path,
-                load_in_8bit=False
-            )
-            print("✅ OCR组件初始化完成")
+            # 根据模型路径判断使用哪个OCR类
+            if "internvl3" or "InternVL3" in self.model_path.lower():
+                self.ocr = MathFormulaOCR(
+                    model_path=self.model_path, load_in_8bit=False
+                )
+                print("✅ 使用InternVL3模型ocr组件初始化完成")
+            else:
+                self.ocr = MathFormulaOCRInternS1(
+                    model_path=self.model_path, load_in_8bit=False
+                )
+                print("✅ 使用InternS1模型ocr组件初始化完成")
 
     def _init_evaluator(self):
         """初始化评估器组件"""
@@ -65,7 +78,7 @@ class EvaluatorPipeline:
             self.evaluator = ComprehensiveEvaluator(
                 hash_weight=self.hash_weight,
                 similarity_weight=self.similarity_weight,
-                similarity_threshold=self.similarity_threshold
+                similarity_threshold=self.similarity_threshold,
             )
             print("✅ 评估器组件初始化完成")
 
@@ -113,14 +126,15 @@ class EvaluatorPipeline:
             txt_dir=txt_dir,
             ref_dir=ref_dir,
             output_report=output_report,
-            keep_temp_images=keep_temp_images
+            keep_temp_images=keep_temp_images,
         )
 
         print(f"✅ 评估完成，报告生成: {output_report}")
         return results
 
-    def run_complete_pipeline(self, input_directory, output_directory,
-                            report_path, keep_temp_images=False):
+    def run_complete_pipeline(
+        self, input_directory, output_directory, report_path, keep_temp_images=False
+    ):
         """
         运行完整的测评流程
 
@@ -141,7 +155,9 @@ class EvaluatorPipeline:
 
             # 步骤2: 性能评估（使用输入目录作为参考目录）
             print(f"📝 使用输入目录作为参考目录进行评估: {input_directory}")
-            results = self.run_evaluation(output_directory, input_directory, report_path, keep_temp_images)
+            results = self.run_evaluation(
+                output_directory, input_directory, report_path, keep_temp_images
+            )
 
             print("\n🎉 测评流程全部完成!")
             print(f"📊 最终得分: {results['final_score']:.2f}")
@@ -175,60 +191,41 @@ def parse_arguments():
       --ref-dir ./data/output_eval \\
       --hash-weight 0.6 \\
       --similarity-weight 0.4
-        """
+        """,
     )
 
     # 必需参数
-    parser.add_argument(
-        '--model-path',
-        required=True,
-        help='模型路径 (必需)'
-    )
+    parser.add_argument("--model-path", required=True, help="模型路径 (必需)")
+
+    parser.add_argument("--input-dir", required=True, help="输入图片目录 (必需)")
 
     parser.add_argument(
-        '--input-dir',
-        required=True,
-        help='输入图片目录 (必需)'
+        "--output-dir", required=True, help="中间结果LaTeX文本输出目录 (必需)"
     )
 
-    parser.add_argument(
-        '--output-dir',
-        required=True,
-        help='中间结果LaTeX文本输出目录 (必需)'
-    )
-
-    parser.add_argument(
-        '--report-path',
-        required=True,
-        help='最终评估报告路径 (必需)'
-    )
+    parser.add_argument("--report-path", required=True, help="最终评估报告路径 (必需)")
 
     # 可选参数
     parser.add_argument(
-        '--hash-weight',
-        type=float,
-        default=0.5,
-        help='哈希比较权重 (默认: 0.5)'
+        "--hash-weight", type=float, default=0.5, help="哈希比较权重 (默认: 0.5)"
     )
 
     parser.add_argument(
-        '--similarity-weight',
+        "--similarity-weight",
         type=float,
         default=0.5,
-        help='相似度计算权重 (默认: 0.5)'
+        help="相似度计算权重 (默认: 0.5)",
     )
 
     parser.add_argument(
-        '--similarity-threshold',
+        "--similarity-threshold",
         type=float,
         default=0.99,
-        help='相似度阈值 (默认: 0.6)'
+        help="相似度阈值 (默认: 0.6)",
     )
 
     parser.add_argument(
-        '--keep-temp-images',
-        action='store_true',
-        help='保留临时生成的图片'
+        "--keep-temp-images", action="store_true", help="保留临时生成的图片"
     )
 
     return parser.parse_args()
@@ -269,7 +266,7 @@ def main():
             model_path=args.model_path,
             hash_weight=args.hash_weight,
             similarity_weight=args.similarity_weight,
-            similarity_threshold=args.similarity_threshold
+            similarity_threshold=args.similarity_threshold,
         )
 
         # 运行完整流程
@@ -277,7 +274,7 @@ def main():
             input_directory=args.input_dir,
             output_directory=args.output_dir,
             report_path=args.report_path,
-            keep_temp_images=args.keep_temp_images
+            keep_temp_images=args.keep_temp_images,
         )
 
         print(f"\n🎉 测评完成! 最终得分: {results['final_score']:.2f}")
@@ -288,6 +285,7 @@ def main():
     except Exception as e:
         print(f"\n❌ 程序执行失败: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

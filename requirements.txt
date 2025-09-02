@@ -31,5 +31,7 @@ transformers==4.55.2
 typing_extensions==4.14.1
 yarl==1.20.1
 ms-swift ==3.7.2
-decord==0.6.0 
+decord==0.6.0
 torchvision==0.23.0
+
+
