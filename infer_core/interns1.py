@@ -6,15 +6,15 @@ import torchvision.transforms as T
 from decord import VideoReader, cpu
 from PIL import Image
 from torchvision.transforms.functional import InterpolationMode
-from transformers import AutoModel, AutoTokenizer, AutoConfig
+from transformers import AutoProcessor, AutoModelForCausalLM
 import glob
 from pathlib import Path
 
 
-class MathFormulaOCR:
-    def __init__(self, model_path="OpenGVLab/InternVL3-1B", load_in_8bit=False):
+class MathFormulaOCRInternS1:
+    def __init__(self, model_path="internlm/Intern-S1-mini", load_in_8bit=False):
         """
-        初始化数学公式OCR类
+        初始化数学公式OCR类，专为InternS1模型设计
 
         Args:
             model_path: 模型路径
@@ -23,7 +23,7 @@ class MathFormulaOCR:
         self.model_path = model_path
         self.load_in_8bit = load_in_8bit
         self.model = None
-        self.tokenizer = None
+        self.processor = None
         self.IMAGENET_MEAN = (0.485, 0.456, 0.406)
         self.IMAGENET_STD = (0.229, 0.224, 0.225)
 
@@ -113,57 +113,22 @@ class MathFormulaOCR:
         pixel_values = torch.stack(pixel_values)
         return pixel_values
 
-    def split_model(self):
-        """分割模型到多个GPU"""
-        device_map = {}
-        world_size = torch.cuda.device_count()
-
-        if world_size <= 1:
-            return "auto"
-
-        config = AutoConfig.from_pretrained(self.model_path, trust_remote_code=True)
-        num_layers = config.llm_config.num_hidden_layers
-
-        num_layers_per_gpu = math.ceil(num_layers / (world_size - 0.5))
-        num_layers_per_gpu = [num_layers_per_gpu] * world_size
-        num_layers_per_gpu[0] = math.ceil(num_layers_per_gpu[0] * 0.5)
-
-        layer_cnt = 0
-        for i, num_layer in enumerate(num_layers_per_gpu):
-            for j in range(num_layer):
-                device_map[f"language_model.model.layers.{layer_cnt}"] = i
-                layer_cnt += 1
-
-        device_map["vision_model"] = 0
-        device_map["mlp1"] = 0
-        device_map["language_model.model.tok_embeddings"] = 0
-        device_map["language_model.model.embed_tokens"] = 0
-        device_map["language_model.output"] = 0
-        device_map["language_model.model.norm"] = 0
-        device_map["language_model.model.rotary_emb"] = 0
-        device_map["language_model.lm_head"] = 0
-        device_map[f"language_model.model.layers.{num_layers - 1}"] = 0
-
-        return device_map
-
     def load_model(self):
-        """加载模型和分词器"""
+        """加载模型和处理器"""
         print("正在加载模型...")
-        device_map = self.split_model()
 
-        self.model = AutoModel.from_pretrained(
+        # 使用正确的API加载模型
+        self.processor = AutoProcessor.from_pretrained(
+            self.model_path, trust_remote_code=True
+        )
+
+        self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
-            torch_dtype=torch.bfloat16,
-            load_in_8bit=self.load_in_8bit,
-            low_cpu_mem_usage=True,
-            use_flash_attn=True,
+            device_map="auto",
+            torch_dtype="auto",
             trust_remote_code=True,
-            device_map=device_map,
         ).eval()
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, trust_remote_code=True, use_fast=False
-        )
         print("模型加载完成!")
 
     def inference_single_image(
@@ -173,26 +138,59 @@ class MathFormulaOCR:
         max_num=12,
     ):
         """对单张图片进行推理"""
-        if self.model is None or self.tokenizer is None:
+        if self.model is None or self.processor is None:
             raise ValueError("模型未加载，请先调用load_model()方法")
 
-        # 加载图像
-        pixel_values = (
-            self.load_image(image_path, max_num=max_num).to(torch.bfloat16).cuda()
+        # 加载图像（与 testimg.py 对齐：直接将 PIL Image 交给消息模板）
+        image = Image.open(image_path).convert("RGB")
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": image},
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ]
+
+        # 使用官方卡片推荐的 chat 模板来构造输入
+        inputs = self.processor.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
+        ).to(self.model.device)
+
+        # 在部分 transformers 版本中，BatchEncoding.to 不支持 dtype 参数。
+        # 为保持与模型精度一致，这里仅在存在 pixel_values 时手动转换其 dtype。
+        if "pixel_values" in inputs:
+            try:
+                model_dtype = next(self.model.parameters()).dtype
+                if isinstance(inputs["pixel_values"], torch.Tensor):
+                    inputs["pixel_values"] = inputs["pixel_values"].to(
+                        dtype=model_dtype
+                    )
+            except StopIteration:
+                pass
+
+        # 生成（对齐 testimg.py 推荐超参）
+        generate_ids = self.model.generate(
+            **inputs,
+            max_new_tokens=1024,
+            do_sample=True,
+            top_p=1.0,
+            top_k=50,
+            temperature=0.8,
         )
 
-        # 构建问题
-        question = f"<image>\n{prompt}"
-
-        # 生成配置
-        generation_config = dict(max_new_tokens=1024, do_sample=True)
-
-        # 推理
-        response = self.model.chat(
-            self.tokenizer, pixel_values, question, generation_config
+        # 解码，仅保留新生成部分
+        decoded_output = self.processor.decode(
+            generate_ids[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True
         )
 
-        return response
+        return decoded_output
 
     def process_images_batch(
         self,
@@ -201,7 +199,7 @@ class MathFormulaOCR:
         prompt="请根据图片中的公式生成对应的 latex 公式文本",
     ):
         """批量处理图片"""
-        if self.model is None or self.tokenizer is None:
+        if self.model is None or self.processor is None:
             self.load_model()
 
         # 创建输出目录
@@ -236,6 +234,9 @@ class MathFormulaOCR:
 
             except Exception as e:
                 print(f"处理{image_file.name}时出错: {str(e)}")
+                import traceback
+
+                traceback.print_exc()
                 continue
 
     def process_single_image_with_save(
@@ -245,7 +246,7 @@ class MathFormulaOCR:
         prompt="请根据图片中的公式生成对应的 latex 公式文本",
     ):
         """处理单张图片并保存结果"""
-        if self.model is None or self.tokenizer is None:
+        if self.model is None or self.processor is None:
             self.load_model()
 
         try:
@@ -264,32 +265,7 @@ class MathFormulaOCR:
 
         except Exception as e:
             print(f"处理图片时出错: {str(e)}")
+            import traceback
+
+            traceback.print_exc()
             return None
-
-
-# 使用示例
-if __name__ == "__main__":
-    # 初始化OCR类
-    ocr = MathFormulaOCR(
-        model_path="/root/code/camp6/swift_output/SFT-InternVL3-1B-lora/v4-20250814-003759/checkpoint-7095-merged",
-        load_in_8bit=False,
-    )
-
-    # 加载模型
-    ocr.load_model()
-
-    # 批量处理图片
-    input_directory = "/root/code/camp6/Aeval/img"  # 包含sample*.png文件的目录
-    output_directory = "/root/code/camp6/swift_output/SFT-InternVL3-1B-lora/v4-20250814-003759/checkpoint-7095-merged/results"  # 输出txt文件的目录
-
-    # 自定义提示词
-    custom_prompt = "请根据图片中的公式生成对应的 latex 公式文本"
-
-    # 批量处理
-    ocr.process_images_batch(input_directory, output_directory, custom_prompt)
-
-    # 或者处理单张图片
-    # single_image_path = "./images/sample1.png"
-    # single_output_path = "./results/sample1.txt"
-    # result = ocr.process_single_image_with_save(single_image_path, single_output_path, custom_prompt)
-    # print(f"识别结果: {result}")
