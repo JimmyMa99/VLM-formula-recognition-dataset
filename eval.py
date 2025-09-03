@@ -27,6 +27,7 @@ class EvaluatorPipeline:
         hash_weight=0.5,
         similarity_weight=0.5,
         similarity_threshold=0.6,
+        model_type="s1",
     ):
         """
         初始化评估管道
@@ -41,11 +42,12 @@ class EvaluatorPipeline:
         self.hash_weight = hash_weight
         self.similarity_weight = similarity_weight
         self.similarity_threshold = similarity_threshold
-
+        
         # 初始化组件
         self.ocr = None
         self.evaluator = None
-
+        self.model_type=model_type
+        
         print("=" * 80)
         print("🚀 初始化测评管道")
         print("=" * 80)
@@ -59,17 +61,29 @@ class EvaluatorPipeline:
         """初始化OCR组件"""
         if self.ocr is None:
             print("📥 正在初始化OCR组件...")
-            # 根据模型路径判断使用哪个OCR类
-            if "internvl3" or "InternVL3" in self.model_path.lower():
-                self.ocr = MathFormulaOCR(
-                    model_path=self.model_path, load_in_8bit=False
-                )
-                print("✅ 使用InternVL3模型ocr组件初始化完成")
-            else:
+            
+            # 判断模型类型
+            if self.model_type == "s1":
                 self.ocr = MathFormulaOCRInternS1(
                     model_path=self.model_path, load_in_8bit=False
                 )
                 print("✅ 使用InternS1模型ocr组件初始化完成")
+            elif self.model_type == "vl":
+                self.ocr = MathFormulaOCR(
+                    model_path=self.model_path, load_in_8bit=False
+                )
+                print("✅ 使用InternVL3模型ocr组件初始化完成")
+            else:  # auto模式，保持原有逻辑
+                if "vl3" in self.model_path.lower():
+                    self.ocr = MathFormulaOCR(
+                        model_path=self.model_path, load_in_8bit=False
+                    )
+                    print("✅ 使用InternVL3模型ocr组件初始化完成")
+                else:
+                    self.ocr = MathFormulaOCRInternS1(
+                        model_path=self.model_path, load_in_8bit=False
+                    )
+                    print("✅ 使用InternS1模型ocr组件初始化完成")
 
     def _init_evaluator(self):
         """初始化评估器组件"""
@@ -181,7 +195,8 @@ def parse_arguments():
       --input-dir /path/to/images \\
       --output-dir ./results \\
       --report-path ./evaluation_report.txt \\
-      --ref-dir ./data/output_eval
+      --ref-dir ./data/output_eval \\
+      --model_type "s1" 
 
   python eval.py \\
       --model-path OpenGVLab/InternVL3-1B \\
@@ -190,7 +205,8 @@ def parse_arguments():
       --report-path ./report.txt \\
       --ref-dir ./data/output_eval \\
       --hash-weight 0.6 \\
-      --similarity-weight 0.4
+      --similarity-weight 0.4 \\
+      --model_type "s1"  
         """,
     )
 
@@ -227,6 +243,12 @@ def parse_arguments():
     parser.add_argument(
         "--keep-temp-images", action="store_true", help="保留临时生成的图片"
     )
+    parser.add_argument(
+    "--model-type", 
+    choices=["s1", "vl", "auto"], 
+    default="s1", 
+    help="模型类型: s1, vl, auto (默认: s1)"
+)
 
     return parser.parse_args()
 
@@ -257,7 +279,7 @@ def main():
         print(f"  相似度权重: {args.similarity_weight}")
         print(f"  相似度阈值: {args.similarity_threshold}")
         print(f"  保留临时图片: {args.keep_temp_images}")
-
+        print(f"  模型类型: {args.model_type}")
         # 验证路径
         validate_paths(args)
 
@@ -267,6 +289,7 @@ def main():
             hash_weight=args.hash_weight,
             similarity_weight=args.similarity_weight,
             similarity_threshold=args.similarity_threshold,
+            model_type=args.model_type, #新增参数
         )
 
         # 运行完整流程
