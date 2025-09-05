@@ -27,7 +27,6 @@ scipy==1.15.3
 six==1.17.0
 sympy==1.14.0
 tifffile==2025.5.10
-transformers==4.55.2
 typing_extensions==4.14.1
 yarl==1.20.1
 decord==0.6.0
