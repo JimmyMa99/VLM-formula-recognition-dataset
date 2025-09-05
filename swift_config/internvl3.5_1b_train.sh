@@ -13,7 +13,6 @@ LOG_FILE="$LOG_DIR/[SFT]internvl3.5_1b_${TIMESTAMP}.log"
 export OMP_NUM_THREADS=1
 export CUDA_VISIBLE_DEVICES=0
 
-
 # 设置随机端口号，避免端口冲突
 export MASTER_PORT=$((10000 + RANDOM % 50000))
 
@@ -62,9 +61,8 @@ if kill -0 $TRAIN_PID 2>/dev/null; then
     echo "tail -f $LOG_FILE"
     echo ""
     echo "To stop training, use:"
-    echo "kill $TRAIN_PID"
+    echo "kill -9 $TRAIN_PID"
 else
     echo "Failed to start training process"
     echo "Check log file for errors: $LOG_FILE"
 fi
-
