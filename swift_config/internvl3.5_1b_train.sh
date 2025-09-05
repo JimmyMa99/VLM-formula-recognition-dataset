@@ -25,12 +25,12 @@ echo "Using port: $MASTER_PORT"
 # 启动训练并获取PID
 nohup swift sft \
     --model '/root/share/new_models/InternVL3.5/InternVL3_5-1B'\
-    --dataset '/root/share/datasets/VLM-formula-recognition-dataset_intern_camp/train/train_mini.jsonl' \
+    --dataset '/root/share/datasets/VLM-formula-recognition-dataset_intern_camp/train/train_mini_abs.jsonl' \
     --eval_steps 1000 \
     --train_type lora \
-    --lora_rank 8 \
+    --lora_rank 4 \
     --lora_dropout 0.01 \
-    --lora_alpha 16 \
+    --lora_alpha 8 \
     --torch_dtype bfloat16 \
     --num_train_epochs 5 \
     --per_device_train_batch_size 1 \
@@ -42,10 +42,10 @@ nohup swift sft \
     --save_total_limit 10 \
     --gradient_checkpointing_kwargs '{"use_reentrant": false}' \
     --logging_steps 1 \
-    --max_length 8000 \
+    --max_length 6000 \
     --output_dir ./swift_output/SFT-InternVL3_5-1B\
-    --dataset_num_proc 16 \
-    --dataloader_num_workers 16 \
+    --dataset_num_proc 8 \
+    --dataloader_num_workers 8 \
     --metric acc \
     --freeze_vit true \
     > "$LOG_FILE" 2>&1 &
