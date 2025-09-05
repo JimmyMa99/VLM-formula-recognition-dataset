@@ -1,6 +1,0 @@
-\begin{bmatrix}
-        v_\pi(s_1) \\
-        v_\pi(s_2) \\
-        v_\pi(s_3) \\
-        v_\pi(s_4)
-        \end{bmatrix}

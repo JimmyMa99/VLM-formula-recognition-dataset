@@ -6,56 +6,48 @@ mkdir -p $LOG_DIR
 
 # 获取当前时间戳
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-LOG_FILE="$LOG_DIR/[SFT]internvl3_1b_${TIMESTAMP}.log"
+LOG_FILE="$LOG_DIR/[SFT]internvl3.5_1b_${TIMESTAMP}.log"
 
 # 设置环境变量
 # export ENABLE_AUDIO_OUTPUT=False
 export OMP_NUM_THREADS=1
 export CUDA_VISIBLE_DEVICES=0
 
-
 # 设置随机端口号，避免端口冲突
 export MASTER_PORT=$((10000 + RANDOM % 50000))
-
 
 # 先打印启动信息
 echo "Starting training..."
 echo "Log file: $LOG_FILE"
 echo "Using port: $MASTER_PORT"
 
+# 没有指定 model_type
 # 启动训练并获取PID
 nohup swift sft \
-    --model  OpenGVLab/InternVL3-1B\
-    --model_type internlm3 \
-    --dataset '/root/share/datasets/VLM-formula-recognition-dataset_intern_camp/train/train_mini.jsonl' \
+    --model '/root/share/new_models/InternVL3.5/InternVL3_5-1B'\
+    --dataset '/root/share/datasets/VLM-formula-recognition-dataset_intern_camp/train/train_mini_abs.jsonl' \
     --eval_steps 1000 \
     --train_type lora \
-    --lora_rank 64 \
+    --lora_rank 4 \
     --lora_dropout 0.01 \
-    --lora_alpha 128 \
+    --lora_alpha 8 \
     --torch_dtype bfloat16 \
     --num_train_epochs 5 \
-    --per_device_train_batch_size 4 \
-    --per_device_eval_batch_size 4 \
+    --per_device_train_batch_size 1 \
+    --per_device_eval_batch_size 1 \
     --learning_rate 1e-4 \
     --warmup_ratio 0.05 \
-    --gradient_accumulation_steps 2 \
+    --gradient_accumulation_steps 4 \
     --save_steps 2000 \
     --save_total_limit 10 \
     --gradient_checkpointing_kwargs '{"use_reentrant": false}' \
     --logging_steps 1 \
-    --max_length 8192 \
-    --output_dir ./swift_output/SFT-InternVL3-1B-lora \
-    --dataset_num_proc 16 \
-    --dataloader_num_workers 16 \
-    --model_author JimmyMa99 \
-    --model_name SFT-camp6 \
-    --report_to swanlab \
-    --swanlab_token  \
-    --swanlab_project camp6 \
-    --swanlab_mode cloud \
-    --swanlab_exp_name "[$TIMESTAMP]-SFT-InternVL3-1B" \
+    --max_length 6000 \
+    --output_dir ./swift_output/SFT-InternVL3_5-1B\
+    --dataset_num_proc 8 \
+    --dataloader_num_workers 8 \
     --metric acc \
+    --freeze_vit true \
     > "$LOG_FILE" 2>&1 &
 
 # 获取PID并等待一下确保进程启动
@@ -69,9 +61,8 @@ if kill -0 $TRAIN_PID 2>/dev/null; then
     echo "tail -f $LOG_FILE"
     echo ""
     echo "To stop training, use:"
-    echo "kill $TRAIN_PID"
+    echo "kill -9 $TRAIN_PID"
 else
     echo "Failed to start training process"
     echo "Check log file for errors: $LOG_FILE"
 fi
-
