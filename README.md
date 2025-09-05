@@ -28,10 +28,14 @@
 │   ├── cal_score.py          # 图像相似度计算
 │   └── cal_score_hash.py     # 哈希值比较
 ├── infer_core/               # 推理核心逻辑
-│   ├── inferVLM.py           # VLM模型推理脚本
+│   ├── infervl.py            # VL模型推理脚本
+│   └── ...
+├── swift_config/                       # 模型微调配置文件
+│   ├── internvl3.5_1b_train.sh         # internvl3.5微调脚本
 │   └── ...
 ├── eval.py                   # 一键评估入口脚本
 ├── env.sh                    # 环境配置脚本
+└── uoload.py                 # 上传模型到魔搭
 └── README.md                 # 项目说明
 ```
 
@@ -42,9 +46,18 @@
 请确保已安装所有必需的 Python 库。您可以根据 `import` 语句安装相关依赖：
 
 ```bash
-bash env.sh
+conda create -n ms-swift python=3.10 -y
+conda activate ms-swift
+
+git clone https://gh.llkk.cc/https://github.com/JimmyMa99/VLM-formula-recognition-dataset.git
+cd VLM-formula-recognition-dataset
 
 pip install -r requirements.txt
+
+
+git clone https://xget.xi-xu.me/gh/modelscope/ms-swift.git
+cd ms-swift
+pip install -e .
 ```
 
 ### 2. 一键评估运行
@@ -52,12 +65,12 @@ pip install -r requirements.txt
 现在已将推理与评估流程合并，直接运行以下命令即可完成从推理到评估的全流程：
 
 ```bash
-  python eval.py \\
-      --model-path /path/to/model \\
-      --input-dir /path/to/images \\
-      --output-dir ./results \\
-      --report-path ./evaluation_report.txt \\
-      --ref-dir ./data/output_eval
+python eval.py \
+  --model-path /root/share/new_models/InternVL3/InternVL3-1B\
+  --input-dir ./data/output_eval \
+  --output-dir ./data/results_vl \
+  --report-path ./evaluation_report.txt \
+  --model-type vl
 ```
 
 脚本会完成：读取输入、运行模型推理、渲染对比并输出评估报告。

@@ -13,8 +13,8 @@ from pathlib import Path
 # 添加路径导入
 sys.path.append("./infer_core")
 sys.path.append("./eval_core")
-from infer_core.inferVLM import MathFormulaOCR
-from infer_core.interns1 import MathFormulaOCRInternS1
+from infer_core.internvl import MathFormulaOCR_vl
+from infer_core.interns1 import MathFormulaOCR_s1
 from main_eval import ComprehensiveEvaluator
 
 
@@ -42,12 +42,12 @@ class EvaluatorPipeline:
         self.hash_weight = hash_weight
         self.similarity_weight = similarity_weight
         self.similarity_threshold = similarity_threshold
-        
+
         # 初始化组件
         self.ocr = None
         self.evaluator = None
-        self.model_type=model_type
-        
+        self.model_type = model_type
+
         print("=" * 80)
         print("🚀 初始化测评管道")
         print("=" * 80)
@@ -61,26 +61,26 @@ class EvaluatorPipeline:
         """初始化OCR组件"""
         if self.ocr is None:
             print("📥 正在初始化OCR组件...")
-            
+
             # 判断模型类型
             if self.model_type == "s1":
-                self.ocr = MathFormulaOCRInternS1(
+                self.ocr = MathFormulaOCR_s1(
                     model_path=self.model_path, load_in_8bit=False
                 )
                 print("✅ 使用InternS1模型ocr组件初始化完成")
             elif self.model_type == "vl":
-                self.ocr = MathFormulaOCR(
+                self.ocr = MathFormulaOCR_vl(
                     model_path=self.model_path, load_in_8bit=False
                 )
                 print("✅ 使用InternVL3模型ocr组件初始化完成")
             else:  # auto模式，保持原有逻辑
                 if "vl3" in self.model_path.lower():
-                    self.ocr = MathFormulaOCR(
+                    self.ocr = MathFormulaOCR_vl(
                         model_path=self.model_path, load_in_8bit=False
                     )
                     print("✅ 使用InternVL3模型ocr组件初始化完成")
                 else:
-                    self.ocr = MathFormulaOCRInternS1(
+                    self.ocr = MathFormulaOCR_s1(
                         model_path=self.model_path, load_in_8bit=False
                     )
                     print("✅ 使用InternS1模型ocr组件初始化完成")
@@ -96,7 +96,7 @@ class EvaluatorPipeline:
             )
             print("✅ 评估器组件初始化完成")
 
-    def run_inference(self, input_directory, output_directory):
+    def run_inference(self, input_directory, output_directory, prompt):
         """
         执行模型推理
 
@@ -113,7 +113,7 @@ class EvaluatorPipeline:
         os.makedirs(output_directory, exist_ok=True)
 
         # 批量处理图片
-        self.ocr.process_images_batch(input_directory, output_directory)
+        self.ocr.process_images_batch(input_directory, output_directory, prompt)
 
         print(f"✅ 推理完成，结果保存至: {output_directory}")
 
@@ -147,7 +147,12 @@ class EvaluatorPipeline:
         return results
 
     def run_complete_pipeline(
-        self, input_directory, output_directory, report_path, keep_temp_images=False
+        self,
+        input_directory,
+        output_directory,
+        report_path,
+        prompt,
+        keep_temp_images=False,
     ):
         """
         运行完整的测评流程
@@ -165,7 +170,7 @@ class EvaluatorPipeline:
 
         try:
             # 步骤1: 模型推理
-            self.run_inference(input_directory, output_directory)
+            self.run_inference(input_directory, output_directory, prompt)
 
             # 步骤2: 性能评估（使用输入目录作为参考目录）
             print(f"📝 使用输入目录作为参考目录进行评估: {input_directory}")
@@ -196,7 +201,7 @@ def parse_arguments():
       --output-dir ./results \\
       --report-path ./evaluation_report.txt \\
       --ref-dir ./data/output_eval \\
-      --model_type "s1" 
+      --model_type "s1"
 
   python eval.py \\
       --model-path OpenGVLab/InternVL3-1B \\
@@ -204,9 +209,7 @@ def parse_arguments():
       --output-dir ./inference_results \\
       --report-path ./report.txt \\
       --ref-dir ./data/output_eval \\
-      --hash-weight 0.6 \\
-      --similarity-weight 0.4 \\
-      --model_type "s1"  
+      --model_type "vl"
         """,
     )
 
@@ -244,12 +247,36 @@ def parse_arguments():
         "--keep-temp-images", action="store_true", help="保留临时生成的图片"
     )
     parser.add_argument(
-    "--model-type", 
-    choices=["s1", "vl", "auto"], 
-    default="s1", 
-    help="模型类型: s1, vl, auto (默认: s1)"
-)
+        "--model-type",
+        choices=["s1", "vl", "auto"],
+        default="vl",
+        help="模型类型: s1, vl, auto (默认: vl)",
+    )
+    parser.add_argument(
+        "--prompt",
+        default="""请根据图片中的公式生成对应的 latex 公式文本，不要任何解释。
 
+  输出格式要求：
+  1. 必须使用 ```latex 代码块包裹
+  2. 仅包含 LaTeX 代码，无任何文字说明
+  3. 确保语法正确，下标用 {} 括起来
+
+  输出案例：
+  案例 1：
+  ```latex
+  \sum_{i=1}^{n} x_i = \mu
+  ```
+
+  案例 2：
+  ```latex
+  \begin{bmatrix}
+  a & b \\
+  c & d
+  \end{bmatrix}
+  ```
+""",
+        help="输入 model的 prompt",
+    )
     return parser.parse_args()
 
 
@@ -289,7 +316,7 @@ def main():
             hash_weight=args.hash_weight,
             similarity_weight=args.similarity_weight,
             similarity_threshold=args.similarity_threshold,
-            model_type=args.model_type, #新增参数
+            model_type=args.model_type,  # 新增参数
         )
 
         # 运行完整流程
@@ -297,6 +324,7 @@ def main():
             input_directory=args.input_dir,
             output_directory=args.output_dir,
             report_path=args.report_path,
+            prompt=args.prompt,  # 新增参数
             keep_temp_images=args.keep_temp_images,
         )
 
