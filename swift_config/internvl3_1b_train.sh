@@ -27,7 +27,7 @@ echo "Using port: $MASTER_PORT"
 nohup swift sft \
     --model  OpenGVLab/InternVL3-1B\
     --model_type internlm3 \
-    --dataset 'train/mini.jsonl' \
+    --dataset '/root/share/datasets/VLM-formula-recognition-dataset_intern_camp/train/train_mini.jsonl' \
     --eval_steps 1000 \
     --train_type lora \
     --lora_rank 64 \

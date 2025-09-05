@@ -26,7 +26,7 @@ echo "Using port: $MASTER_PORT"
 # 启动训练并获取PID
 nohup swift sft \
     --model '/root/share/new_models/InternVL3.5/InternVL3_5-1B'\
-    --dataset '/root/user/camp6/math/train_mini_abs_300.jsonl' \
+    --dataset '/root/share/datasets/VLM-formula-recognition-dataset_intern_camp/train/train_mini.jsonl' \
     --eval_steps 1000 \
     --train_type lora \
     --lora_rank 8 \
