@@ -1,1 +1,1 @@
-\sum_{l=1}^{n} x_l = \mu
+\sum_{i=1}^{n} x_i = \mu

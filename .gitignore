@@ -2,3 +2,7 @@
 .__pycache__
 __pycache__
 .infer_core/__pycache__
+
+test/
+
+data/.DS_Store
