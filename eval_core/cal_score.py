@@ -35,11 +35,21 @@ class ImageSimilarity:
                 if not os.path.exists(image_path):
                     print(f"图像文件不存在: {image_path}")
                     return None
-                image = cv2.imread(image_path)
-                if image is None:
-                    # 尝试用PIL加载
-                    pil_image = Image.open(image_path)
-                    image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+                # 直接用PIL加载
+                pil_image = Image.open(image_path)
+                if pil_image.mode == "P":
+                    pil_image = pil_image.convert("RGBA")
+                # 转成 NumPy 数组
+                image_np = np.array(pil_image)
+                if image_np.ndim == 2:
+                    # 灰度图
+                    image = cv2.cvtColor(image_np, cv2.COLOR_GRAY2BGR)
+                elif image_np.shape[2] == 4:
+                    # 带 alpha 通道
+                    image = cv2.cvtColor(image_np, cv2.COLOR_RGBA2BGR)
+                else:
+                    # RGB 转 BGR
+                    image = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
             else:
                 # 假设传入的已经是numpy数组
                 image = image_path
